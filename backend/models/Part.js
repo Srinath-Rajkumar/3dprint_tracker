@@ -1,16 +1,3 @@
-// import mongoose from 'mongoose';
-
-// const partSchema = mongoose.Schema({
-//     project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
-//     partName: { type: String, required: true },
-//     // Fields from your tracking sheet example
-//     // These might be better suited in a PrintJob model linked to this Part
-// }, { timestamps: true });
-
-// const Part = mongoose.model('Part', partSchema);
-// export default Part;
-
-// backend/models/Part.js
 import mongoose from 'mongoose';
 
 const partSchema = mongoose.Schema(

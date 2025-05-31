@@ -1,131 +1,95 @@
 // frontend/src/components/admin/CostSettingsForm.js
-import React, { useEffect } from 'react';
-import { Form, Button, Spinner, InputGroup } from 'react-bootstrap';
-import useForm from '../../hooks/useForm';
-import InputField from '../common/InputField';
+import React from 'react';
+import { Form, Button, Spinner, InputGroup } from 'react-bootstrap'; // Added InputGroup
+import useForm from '../../hooks/useForm'; // Assuming you have this hook
+import InputField from '../common/InputField'; // Assuming you have this
 
 const CostSettingsForm = ({ initialSettings, onSave, isLoading }) => {
-  const defaultValues = {
-    pricePerMinute: 0.10,
-    pricePerGramFilament: 0.05,
-  };
-
   const {
     values,
     errors,
-    isSubmitting, // We'll use the passed `isLoading` prop for the button
+    isSubmitting, // From useForm, can be used instead of isLoading prop if form handles it
     handleChange,
     handleSubmit,
-    resetForm,
-    setValues,
-  } = useForm(initialSettings || defaultValues, validateCostSettings);
+    // setValues, // If needed to reset or update form programmatically
+  } = useForm(
+    {
+      pricePerMinute: initialSettings?.pricePerMinute || 0,
+      pricePerGramFilament: initialSettings?.pricePerGramFilament || 0,
+    },
+    validateForm // Validation function defined below
+  );
 
-  useEffect(() => {
-    if (initialSettings) {
-      setValues(initialSettings);
-    } else {
-      resetForm(defaultValues); // Reset to defaults if initialSettings is null/undefined
-    }
-  }, [initialSettings, setValues, resetForm]);
-
-
-  const handleFormSubmit = async () => {
-    await onSave({
-        pricePerMinute: parseFloat(values.pricePerMinute),
-        pricePerGramFilament: parseFloat(values.pricePerGramFilament),
-    });
-  };
-
-  function validateCostSettings(vals) {
+  function validateForm(vals) {
     const errs = {};
-    if (vals.pricePerMinute === '' || isNaN(parseFloat(vals.pricePerMinute)) || parseFloat(vals.pricePerMinute) < 0) {
-      errs.pricePerMinute = 'Valid price per minute is required (e.g., 0.10).';
+    if (vals.pricePerMinute === undefined || isNaN(vals.pricePerMinute) || Number(vals.pricePerMinute) < 0) {
+      errs.pricePerMinute = 'Price per minute must be a non-negative number.';
     }
-    if (vals.pricePerGramFilament === '' || isNaN(parseFloat(vals.pricePerGramFilament)) || parseFloat(vals.pricePerGramFilament) < 0) {
-      errs.pricePerGramFilament = 'Valid price per gram of filament is required (e.g., 0.05).';
+    if (vals.pricePerGramFilament === undefined || isNaN(vals.pricePerGramFilament) || Number(vals.pricePerGramFilament) < 0) {
+      errs.pricePerGramFilament = 'Price per gram must be a non-negative number.';
     }
     return errs;
   }
 
+  const handleFormSubmit = async () => {
+    // Convert values to numbers before sending
+    const settingsData = {
+      pricePerMinute: Number(values.pricePerMinute),
+      pricePerGramFilament: Number(values.pricePerGramFilament),
+    };
+    await onSave(settingsData);
+  };
+
   return (
     <Form onSubmit={(e) => handleSubmit(e, handleFormSubmit)}>
-      <InputField
-        label="Price per Minute of Print Time"
-        name="pricePerMinute"
-        type="number"
-        value={values.pricePerMinute}
-        onChange={handleChange}
-        error={errors.pricePerMinute}
-        step="0.01"
-        min="0"
-        prependText="$"
-        isRequired
-      />
-       <InputField
-        label="Price per Gram of Filament"
-        name="pricePerGramFilament"
-        type="number"
-        value={values.pricePerGramFilament}
-        onChange={handleChange}
-        error={errors.pricePerGramFilament}
-        step="0.001" // Allow for finer granularity if needed
-        min="0"
-        prependText="$"
-        isRequired
-      />
+      <Form.Group className="mb-3" controlId="pricePerMinute">
+        <Form.Label>Price per Minute (₹)</Form.Label>
+        <InputGroup>
+          <InputGroup.Text>₹</InputGroup.Text>
+          <Form.Control
+            type="number"
+            name="pricePerMinute"
+            value={values.pricePerMinute}
+            onChange={handleChange}
+            isInvalid={!!errors.pricePerMinute}
+            step="0.01" // Allow cents/paise
+            min="0"
+            placeholder="e.g., 2.50"
+          />
+        </InputGroup>
+        {errors.pricePerMinute && <Form.Text className="text-danger">{errors.pricePerMinute}</Form.Text>}
+      </Form.Group>
 
-      <Button type="submit" variant="primary" className="mt-3" disabled={isLoading}>
-        {isLoading ? <Spinner as="span" animation="border" size="sm" /> : 'Save Settings'}
+      <Form.Group className="mb-3" controlId="pricePerGramFilament">
+        <Form.Label>Price per Gram of Filament (₹)</Form.Label>
+        <InputGroup>
+          <InputGroup.Text>₹</InputGroup.Text>
+          <Form.Control
+            type="number"
+            name="pricePerGramFilament"
+            value={values.pricePerGramFilament}
+            onChange={handleChange}
+            isInvalid={!!errors.pricePerGramFilament}
+            step="0.01"
+            min="0"
+            placeholder="e.g., 5.00"
+          />
+        </InputGroup>
+        {errors.pricePerGramFilament && <Form.Text className="text-danger">{errors.pricePerGramFilament}</Form.Text>}
+      </Form.Group>
+
+      <Button type="submit" variant="primary" disabled={isSubmitting || isLoading}>
+        {isSubmitting || isLoading ? (
+          <>
+            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+            <span className="ms-2">Saving...</span>
+          </>
+        ) : (
+          'Save Settings'
+        )}
       </Button>
     </Form>
   );
 };
-
-// Update InputField to handle prependText
-// frontend/src/components/common/InputField.js (Add prependText prop)
-/*
-const InputField = ({ ..., prependText, ... }) => {
-  return (
-    <Form.Group controlId={name} className="mb-3">
-      {label && <Form.Label>{label}{isRequired && <span className="text-danger">*</span>}</Form.Label>}
-      {prependText ? (
-        <InputGroup>
-          <InputGroup.Text>{prependText}</InputGroup.Text>
-          <Form.Control ... />
-          {error && <Form.Control.Feedback type="invalid" style={{ display: 'block' }}>{error}</Form.Control.Feedback>}
-        </InputGroup>
-      ) : (
-        <>
-          <Form.Control ... />
-          {error && <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>}
-        </>
-      )}
-    </Form.Group>
-  );
-};
-*/
-// For simplicity, I'll assume InputField is already updated or you'll update it.
-// If InputField doesn't support InputGroup directly, you might need to wrap it or adjust.
-// A simpler way for CostSettingsForm if InputField doesn't support InputGroup:
-/*
-// In CostSettingsForm.js
-    <Form.Group controlId="pricePerMinute" className="mb-3">
-        <Form.Label>Price per Minute of Print Time <span className="text-danger">*</span></Form.Label>
-        <InputGroup>
-            <InputGroup.Text>$</InputGroup.Text>
-            <Form.Control
-                type="number"
-                name="pricePerMinute"
-                value={values.pricePerMinute}
-                onChange={handleChange}
-                isInvalid={!!errors.pricePerMinute}
-                step="0.01"
-                min="0"
-            />
-            <Form.Control.Feedback type="invalid">{errors.pricePerMinute}</Form.Control.Feedback>
-        </InputGroup>
-    </Form.Group>
-    // ... similar for pricePerGramFilament
-*/
 
 export default CostSettingsForm;

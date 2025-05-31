@@ -18,7 +18,7 @@ const ProjectCostDisplay = ({ costByTime, costByFilament, showCostBy, setShowCos
       </Form.Group>
       <p className="mb-0">
         <strong>
-          Est. Cost: $
+          Est. Cost: ₹
           {showCostBy === 'time'
             ? (costByTime || 0).toFixed(2)
             : (costByFilament || 0).toFixed(2)}

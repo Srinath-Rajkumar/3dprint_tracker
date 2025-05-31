@@ -18,23 +18,34 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   const completedProjects = await Project.countDocuments({ status: 'completed' });
 
   // More complex aggregations for filament, print time, success rates
-  const printJobStats = await PrintJob.aggregate([
+  const completedJobStats = await PrintJob.aggregate([ // Renamed for clarity
     {
-      $match: { status: 'completed' } // Only consider completed jobs for these stats
+      $match: { status: 'completed' }
     },
     {
       $group: {
         _id: null,
         totalFilamentUsedGrams: { $sum: '$weightGrams' },
         totalPrintTimeSeconds: { $sum: '$actualPrintTimeSeconds' },
-        totalCompletedJobs: { $sum: 1 }
+        count: { $sum: 1 } // Count of completed jobs
+      }
+    },
+    {
+      $project: { // Reshape the output
+        _id: 0, // Exclude the _id field
+        totalFilamentUsedGrams: 1,
+        totalPrintTimeSeconds: 1,
+        totalCompletedJobs: '$count' // Rename count to totalCompletedJobs
       }
     }
   ]);
   
-  const failedPrintJobs = await PrintJob.countDocuments({ status: 'failed' });
-  const totalAttemptedJobs = (printJobStats[0]?.totalCompletedJobs || 0) + failedPrintJobs;
-  const overallSuccessRate = totalAttemptedJobs > 0 ? (((printJobStats[0]?.totalCompletedJobs || 0) / totalAttemptedJobs) * 100) : 0;
+  const failedPrintJobsCount = await PrintJob.countDocuments({ status: 'failed' }); // Renamed for clarity
+  const totalCompletedJobsCount = completedJobStats[0]?.totalCompletedJobs || 0;
+  const totalAttemptedJobs = totalCompletedJobsCount + failedPrintJobsCount;
+
+  const overallSuccessRate = totalAttemptedJobs > 0 ? ((totalCompletedJobsCount / totalAttemptedJobs) * 100) : 0;
+  const overallFailureRate = totalAttemptedJobs > 0 ? ((failedPrintJobsCount / totalAttemptedJobs) * 100) : 0; // <<< ADDED FAILURE RATE
 
 
   res.json({
@@ -44,11 +55,11 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     inProductionPrinters,
     ongoingProjects,
     completedProjects,
-    totalFilamentUsedGrams: printJobStats[0]?.totalFilamentUsedGrams || 0,
-    totalPrintTimeSeconds: printJobStats[0]?.totalPrintTimeSeconds || 0,
-    totalCompletedParts: printJobStats[0]?.totalCompletedJobs || 0, // Assuming one job is one part
-    projectSuccessRate: parseFloat(overallSuccessRate.toFixed(1)), // Example, needs more refined calculation
-    // Add other stats as needed
+    totalFilamentUsedGrams: completedJobStats[0]?.totalFilamentUsedGrams || 0,
+    totalPrintTimeSeconds: completedJobStats[0]?.totalPrintTimeSeconds || 0,
+    totalCompletedParts: totalCompletedJobsCount, // Assuming one job is one part successfully printed
+    projectSuccessRate: parseFloat(overallSuccessRate.toFixed(1)),
+    projectFailureRate: parseFloat(overallFailureRate.toFixed(1)), // <<< ADDED TO RESPONSE
   });
 });
 
