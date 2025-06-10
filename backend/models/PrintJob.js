@@ -35,6 +35,7 @@ const printJobSchema = mongoose.Schema({
     actualPrintTimeSeconds: { type: Number },
     actualEndTime: { type: Date },
     failReason: { type: String },
+    filamentType: { type: String, trim: true }, 
 }, { timestamps: true });
 
 // Helper to convert "days hrs mins" string to seconds

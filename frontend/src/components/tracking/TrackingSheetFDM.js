@@ -20,7 +20,7 @@ const TrackingSheetFDM = ({ projectId, projectStatus, initialPrintJobs, onJobsUp
   const [selectedJobForEdit, setSelectedJobForEdit] = useState(null);
   const [addingToConceptualPart, setAddingToConceptualPart] = useState(null);
   const [activeAccordionKey, setActiveAccordionKey] = useState(null);
-  
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [jobIdToDelete, setJobIdToDelete] = useState(null);
 
@@ -54,7 +54,7 @@ const TrackingSheetFDM = ({ projectId, projectStatus, initialPrintJobs, onJobsUp
     fetchPrintersForDropdown();
   }, []);
 
-   const handleGenericModalSuccess = () => { // Renamed for clarity
+  const handleGenericModalSuccess = () => { // Renamed for clarity
     setShowAddModal(false);
     setShowEditDetailsModal(false); // Close new modal
     setShowChangeStatusModal(false); // Close new modal
@@ -100,7 +100,7 @@ const TrackingSheetFDM = ({ projectId, projectStatus, initialPrintJobs, onJobsUp
 
   const isProjectCompleted = projectStatus === PROJECT_STATUS.COMPLETED || projectStatus === PROJECT_STATUS.CANCELLED;
 
-  
+
   return (
     <div>
       {/* ... Add New Conceptual Part Button ... */}
@@ -152,8 +152,9 @@ const TrackingSheetFDM = ({ projectId, projectStatus, initialPrintJobs, onJobsUp
                       <thead>
                         <tr>
                           <th>S.No</th>
-                          <th>Piece ID / Details</th>
-                          <th>Slicer Plate No.</th>
+                          <th>Piece ID / Plate No.</th>
+                          {/* <th>Slicer Plate No.</th>  REPLACED */}
+                          <th>Filament Type</th> 
                           <th>Machine Name</th>
                           <th>Print Time (Est.)</th>
                           <th>Weight (g)</th>
@@ -186,10 +187,10 @@ const TrackingSheetFDM = ({ projectId, projectStatus, initialPrintJobs, onJobsUp
         </Accordion>
       )}
 
-     {/* Modals */}
-     {loadingActions && <div className="text-center my-2"><Spinner animation="border" size="sm" /> Processing...</div>}
-      {showAddModal && ( <AddPrintJobModal show={showAddModal} handleClose={() => setShowAddModal(false)} projectId={projectId} onSuccess={handleGenericModalSuccess} availablePrinters={printers} conceptualPartInfo={addingToConceptualPart} /> )}
-      
+      {/* Modals */}
+      {loadingActions && <div className="text-center my-2"><Spinner animation="border" size="sm" /> Processing...</div>}
+      {showAddModal && (<AddPrintJobModal show={showAddModal} handleClose={() => setShowAddModal(false)} projectId={projectId} onSuccess={handleGenericModalSuccess} availablePrinters={printers} conceptualPartInfo={addingToConceptualPart} />)}
+
       {/* New Modals */}
       {showEditDetailsModal && selectedJobForAction && (
         <EditJobDetailsModal

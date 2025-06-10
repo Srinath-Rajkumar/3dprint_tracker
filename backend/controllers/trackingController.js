@@ -5,6 +5,8 @@ import Project from '../models/Project.js';
 import Printer from '../models/Printer.js';
 import Part from '../models/Part.js';
 import { PRINT_JOB_STATUS } from '../utils/constants.js';
+import { parseGcodeFile } from '../utils/gcodeParser.js'; // Your new parser utility
+import fs from 'fs'; // For deleting temp file
 // Part model is somewhat implicit within PrintJob for this structure,
 // as each PrintJob *is* for a "part". If you need a separate Part entity, adjust accordingly.
 
@@ -21,7 +23,8 @@ const addPrintJobToProject = asyncHandler(async (req, res) => {
     weightGrams,
     jobStartDate,
     jobStartTime,
-    totalPiecesInConcept, // Optional: if user specifies how many total pieces the "Hand" has
+    totalPiecesInConcept, 
+    filamentType,// Optional: if user specifies how many total pieces the "Hand" has
   } = req.body;
 
   const projectDoc = await Project.findById(projectId); // Renamed to avoid conflict
@@ -96,6 +99,7 @@ const printJob = new PrintJob({
   jobStartDate: jobStartDate ? new Date(jobStartDate) : Date.now(),
   jobStartTime,
   status: 'printing',
+  filamentType: filamentType || undefined,
 });
 
   const createdPrintJob = await printJob.save();
@@ -103,7 +107,9 @@ const printJob = new PrintJob({
   // Update printer status
   machine.status = 'in_production';
   await machine.save();
-  
+  // const populatedJob = await PrintJob.findById(createdPrintJob._id)
+  //                                   .populate('part', 'conceptualPartName totalPieces')
+  //                                   .populate('machine', 'name model');
   res.status(201).json(createdPrintJob);
 });
 
@@ -156,6 +162,7 @@ const updatePrintJob = asyncHandler(async (req, res) => {
     status,
     actualPrintTime, // This is a string like "2hr 15min"
     failReason,
+    filamentType ,
   } = req.body;
 
   const printJob = await PrintJob.findById(jobId).populate('machine');
@@ -172,7 +179,7 @@ const updatePrintJob = asyncHandler(async (req, res) => {
   if (weightGrams) printJob.weightGrams = Number(weightGrams);
   if (jobStartDate) printJob.jobStartDate = new Date(jobStartDate);
   if (jobStartTime !== undefined) printJob.jobStartTime = jobStartTime; // Allow empty string
-
+  if (filamentType !== undefined) printJob.filamentType = filamentType.trim() || null;
   if (printTimeScheduled) {
     const seconds = PrintJob.parsePrintTimeToSeconds(printTimeScheduled);
     if (!isNaN(seconds) && seconds > 0) {
@@ -371,6 +378,36 @@ const deletePrintJob = asyncHandler(async (req, res) => {
   res.json({ message: 'Print job removed' });
 });
 
+// @desc    Parse an uploaded G-code file and extract details
+// @route   POST /api/tracking/parse-gcode
+// @access  Private
+const parseGcodeAndExtractDetails = asyncHandler(async (req, res) => {
+  // console.log('parseGcodeAndExtractDetails controller called.'); // Debug
+  if (!req.file) {
+    // console.log('No file received by controller in parseGcodeAndExtractDetails.'); // Debug
+    res.status(400);
+    throw new Error('No G-code file uploaded.');
+  }
+  // console.log('File received by controller:', req.file); // Debug
+
+  const filePath = req.file.path;
+  const originalFilename = req.file.originalname; // Get the original filename
+
+  try {
+    // Pass originalFilename to the parser
+    const extractedData = await parseGcodeFile(filePath, originalFilename);
+    // console.log('Controller received from parser:', extractedData); // Debug
+    res.json(extractedData);
+  } catch (error) {
+    console.error('G-code parsing error in controller:', error);
+    res.status(500);
+    throw new Error('Failed to parse G-code file on server.');
+  } finally {
+    fs.unlink(filePath, (err) => {
+      if (err) console.error('Error deleting temp gcode file:', filePath, err);
+    });
+  }
+});
 
 export {
   addPrintJobToProject,
@@ -379,4 +416,5 @@ export {
   updatePrintJob,
   reprintFailedJob,
   deletePrintJob,
+  parseGcodeAndExtractDetails,
 };

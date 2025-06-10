@@ -1,7 +1,7 @@
 // frontend/src/services/trackingService.js
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5001/api/tracking'; // Proxied
+const API_BASE_URL = 'http://192.168.2.252:5001/api/tracking'; // Proxied
 
 const getAuthHeaders = () => {
   const userInfo = JSON.parse(localStorage.getItem('userInfo'));
@@ -50,7 +50,17 @@ const reprintFailedJob = async (failedJobId, reprintData) => {
   return data;
 };
 
-
+const parseGcodeUpload = async (formData) => { // formData contains the file
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+  const config = {
+    headers: {
+      'Content-Type': 'multipart/form-data', // Important for file uploads
+      Authorization: `Bearer ${userInfo.token}`,
+    },
+  };
+  const response = await axios.post(`${API_BASE_URL}/parse-gcode`, formData, config);
+  return response.data;
+};
 export default {
   getPrintJobsForProject,
   addPrintJob,
@@ -58,4 +68,5 @@ export default {
   updatePrintJob,
   deletePrintJob,
   reprintFailedJob,
+  parseGcodeUpload,
 };

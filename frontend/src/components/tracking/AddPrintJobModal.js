@@ -1,12 +1,28 @@
 // frontend/src/components/tracking/AddPrintJobModal.js
 
-import React, { useEffect, useMemo,useCallback } from 'react'; // Added useMemo
+import React, { useEffect, useMemo,useCallback,useState } from 'react'; // Added useMemo
 import { Modal, Form, Button, Alert, Spinner, Row, Col } from 'react-bootstrap';
 import useForm from '../../hooks/useForm';
 import trackingService from '../../services/trackingService';
 import InputField from '../common/InputField';
-import { parseDurationToSeconds } from '../../utils/helpers';
+import { parseDurationToSeconds ,formatDurationFromSeconds} from '../../utils/helpers';
 
+// A simple file input component for now. Consider react-dropzone for better UX.
+const GcodeInput = ({ onFileSelect, disabled }) => {
+  const handleChange = (event) => {
+    if (event.target.files && event.target.files[0]) {
+      onFileSelect(event.target.files[0]);
+    } else {
+      onFileSelect(null);
+    }
+  };
+  return (
+    <Form.Group controlId="gcodeFile" className="mb-3">
+      <Form.Label>Upload G-code (Optional - to pre-fill details)</Form.Label>
+      <Form.Control type="file" accept=".gcode,.gc" onChange={handleChange} disabled={disabled} />
+    </Form.Group>
+  );
+};
 // Define defaultInitialValues outside the component so it's stable
 const defaultInitialValuesTemplate = {
   conceptualPartName: '',
@@ -17,6 +33,7 @@ const defaultInitialValuesTemplate = {
   jobStartDate: new Date().toISOString().split('T')[0],
   jobStartTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase(),
   totalPiecesInConcept: '',
+  filamentType: '',
 };
 
 const AddPrintJobModal = ({
@@ -26,6 +43,7 @@ const AddPrintJobModal = ({
   onSuccess,
   availablePrinters,
   conceptualPartInfo,
+  filamentType,
 }) => {
   // Use useMemo for defaultInitialValues if it ever needs to be dynamic based on props,
   // but here it's static, so defining outside is fine.
@@ -54,15 +72,76 @@ const AddPrintJobModal = ({
     setValues,  // This is the 'setFormValues' alias from your useForm hook
   } = useForm(getInitialValues(), validatePrintJobForm); // Initialize useForm with dynamic initial values
 
+  const [selectedGcodeFile, setSelectedGcodeFile] = useState(null);
+  const [parsingGcode, setParsingGcode] = useState(false);
+  const [gcodeParseError, setGcodeParseError] = useState('');
   // This effect will run when 'show' changes or when 'getInitialValues' function reference changes
   // (which happens when conceptualPartInfo changes).
   useEffect(() => {
     if (show) {
       // When the modal is shown, reset the form with the appropriate initial values
       resetForm(getInitialValues());
+
+      setSelectedGcodeFile(null);
+      setGcodeParseError('');
     }
   }, [show, getInitialValues, resetForm]);
 
+  const handleGcodeFileSelect = (file) => {
+    setSelectedGcodeFile(file);
+    setGcodeParseError(''); // Clear previous parse error
+    if (file) {
+      // Automatically attempt to parse if a file is selected
+      handleParseGcode(file);
+    } else {
+        // If file is deselected, you might want to reset related fields or not
+        // For now, we don't auto-reset if they clear the file input
+    }
+  };
+  const handleParseGcode = async (fileToParse) => {
+    const file = fileToParse || selectedGcodeFile;
+    if (!file) {
+      setGcodeParseError('Please select a G-code file first.');
+      return;
+    }
+    setParsingGcode(true);
+    setGcodeParseError('');
+    try {
+      const formData = new FormData();
+      formData.append('gcode', file); // 'gcode' should match multer fieldname on backend
+      
+      // Assume trackingService.parseGcodeUpload sends to backend parser
+      const parsedData = await trackingService.parseGcodeUpload(formData);
+
+      // Pre-fill form with parsed data
+      const newFormValues = { ...values };
+      if (parsedData.estimatedTimeSeconds != null) { // Check for null or undefined
+        newFormValues.printTimeScheduled = formatDurationFromSeconds(parsedData.estimatedTimeSeconds);
+      }
+      if (parsedData.filamentUsedGrams != null) { // Check for null or undefined
+        newFormValues.weightGrams = String(Math.round(parsedData.filamentUsedGrams));
+      }
+      if (parsedData.conceptualPartNameSuggestion && !values.conceptualPartName && !isConceptualNameReadOnly) {
+        newFormValues.conceptualPartName = parsedData.conceptualPartNameSuggestion;
+      }
+      // You could also display parsedData.filamentCost if you want, e.g., in a read-only field or message
+      if (parsedData.filamentCost != null) {
+          console.log("Parsed filament cost from G-code:", parsedData.filamentCost);
+          // Example: setGcodeFilamentCost(parsedData.filamentCost); // If you have a state for it
+      }
+      if (parsedData.filamentType) newFormValues.filamentType = parsedData.filamentType; // <<< SET PARSED FILAMENT TYPE
+      if (parsedData.totalPiecesInConcept && !values.totalPiecesInConcept) { // Only if not already set by conceptualPartInfo
+          newFormValues.totalPiecesInConcept = parsedData.totalPiecesInConcept;
+      }
+      setValues(newFormValues);
+
+    } catch (err) {
+      console.error("G-code Parse API Error:", err);
+      setGcodeParseError(err.response?.data?.message || err.message || 'Failed to parse G-code file.');
+    } finally {
+      setParsingGcode(false);
+    }
+  };
 
   const onSubmitApiCall = async () => {
     const jobData = {
@@ -74,6 +153,7 @@ const AddPrintJobModal = ({
       jobStartDate: values.jobStartDate,
       jobStartTime: values.jobStartTime,
       totalPiecesInConcept: values.totalPiecesInConcept ? Number(values.totalPiecesInConcept) : undefined,
+      filamentType: values.filamentType,
     };
 
     try {
@@ -116,6 +196,7 @@ const AddPrintJobModal = ({
     if (vals.totalPiecesInConcept && (isNaN(vals.totalPiecesInConcept) || Number(vals.totalPiecesInConcept) < 1)) {
         errs.totalPiecesInConcept = 'If provided, total pieces must be a positive number.';
     }
+    if (!vals.filamentType?.trim()) errs.filamentType = 'Filament type is recommended.'; 
     return errs;
   }
 
@@ -132,7 +213,19 @@ const AddPrintJobModal = ({
       </Modal.Header>
       <Form onSubmit={(e) => handleSubmit(e, onSubmitApiCall)}>
         <Modal.Body>
+            {/* G-code Upload and Parse Section */}
+            <GcodeInput onFileSelect={handleGcodeFileSelect} disabled={parsingGcode || isSubmitting} />
+          {/* Button to manually trigger parse if not automatic on select */}
+          <Button onClick={() => handleParseGcode()} disabled={!selectedGcodeFile || parsingGcode || isSubmitting} size="sm" variant="outline-secondary" className="mb-2">
+            {parsingGcode ? <Spinner as="span" animation="border" size="sm" /> : 'Parse G-code Details'}
+          </Button>
+          {parsingGcode && <div className="text-center my-2"><Spinner animation="border" size="sm" /> Parsing G-code...</div>}
+          {gcodeParseError && <Alert variant="warning" className="mt-2">{gcodeParseError}</Alert>}
+          <hr />
+
           {/* InputFields... ensure 'name' prop matches keys in 'values' */}
+          <Row>
+          <Col md={6}>
           <InputField
             label="Conceptual Part Name"
             name="conceptualPartName"
@@ -143,6 +236,28 @@ const AddPrintJobModal = ({
             readOnly={isConceptualNameReadOnly}
             placeholder={isConceptualNameReadOnly ? '' : "e.g., Hand, Left Wing"}
           />
+          </Col>
+          <Col md={6}>
+           <InputField // <<< NEW FIELD FOR FILAMENT TYPE
+          label="Filament Type"
+          name="filamentType"
+          value={values.filamentType || ''}
+          onChange={handleChange}
+          error={errors.filamentType}
+          placeholder="e.g., PLA, PETG, ABS"
+          isRequired
+          // You could make this a dropdown with common types too:
+          as="select"
+        >
+          <option value="">Select Type</option>
+          <option value="PLA">PLA</option>
+          <option value="PETG">PETG</option>
+          <option value="ABS">ABS</option>
+          <option value="TPU">TPU</option>
+          <option value="Other">Other</option>
+        </InputField>
+        </Col>
+        </Row>
           {/* ... other InputFields, make sure their 'value' prop is like values.fieldName || '' */}
            <Row>
             <Col md={6}>

@@ -103,10 +103,11 @@ const ProjectFormModal = ({ show, handleClose, onSuccess, existingProject }) => 
             placeholder="e.g., Airport Miniature Model"
           />
           <InputField
-            label="Order ID (Optional)"
+            label="Order ID"
             name="orderId"
             value={values.orderId}
             onChange={handleChange}
+            isRequired
             placeholder="e.g., CUST123-PROJECTX"
           />
           <InputField

@@ -1,6 +1,6 @@
 // frontend/src/components/tracking/EditJobDetailsModal.js
-import React, { useEffect,useState } from 'react';
-import { Modal, Form, Button, Alert, Spinner, Row, Col,Badge } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import { Modal, Form, Button, Alert, Spinner, Row, Col, Badge } from 'react-bootstrap';
 import useForm from '../../hooks/useForm';
 import trackingService from '../../services/trackingService';
 import InputField from '../common/InputField';
@@ -18,6 +18,7 @@ const EditJobDetailsModal = ({ show, handleClose, job, onSuccess, availablePrint
       weightGrams: currentJob.weightGrams || '',
       jobStartDate: currentJob.jobStartDate ? new Date(currentJob.jobStartDate).toISOString().split('T')[0] : '',
       jobStartTime: currentJob.jobStartTime || '',
+      filamentType: currentJob.filamentType || '',
       // No status fields here
     };
   };
@@ -32,7 +33,7 @@ const EditJobDetailsModal = ({ show, handleClose, job, onSuccess, availablePrint
     if (show && job) {
       resetForm(getInitialValues(job));
     }
-    if(!show) setFormError('');
+    if (!show) setFormError('');
   }, [job, show, resetForm]);
 
   function validateDetailsForm(vals) {
@@ -40,9 +41,9 @@ const EditJobDetailsModal = ({ show, handleClose, job, onSuccess, availablePrint
     if (!vals.machinePlateNo?.trim()) errs.machinePlateNo = 'Piece ID is required.';
     if (!vals.machineId) errs.machineId = 'Machine is required.';
     if (!vals.printTimeScheduled?.trim()) {
-        errs.printTimeScheduled = 'Scheduled print time is required.';
-    } else if (isNaN(parseDurationToSeconds(vals.printTimeScheduled)) || parseDurationToSeconds(vals.printTimeScheduled) <=0) {
-        errs.printTimeScheduled = 'Invalid print time format.';
+      errs.printTimeScheduled = 'Scheduled print time is required.';
+    } else if (isNaN(parseDurationToSeconds(vals.printTimeScheduled)) || parseDurationToSeconds(vals.printTimeScheduled) <= 0) {
+      errs.printTimeScheduled = 'Invalid print time format.';
     }
     if (!vals.weightGrams || isNaN(vals.weightGrams) || Number(vals.weightGrams) <= 0) {
       errs.weightGrams = 'Valid weight is required.';
@@ -61,6 +62,7 @@ const EditJobDetailsModal = ({ show, handleClose, job, onSuccess, availablePrint
       weightGrams: Number(values.weightGrams),
       jobStartDate: values.jobStartDate,
       jobStartTime: values.jobStartTime,
+      filamentType: values.filamentType,
       // status is NOT sent from this modal
     };
     try {
@@ -88,7 +90,23 @@ const EditJobDetailsModal = ({ show, handleClose, job, onSuccess, availablePrint
           {formError && <Alert variant="danger">{formError}</Alert>}
           <p><strong>Conceptual Part:</strong> {values.conceptualPartNameDisplay} (Read-only)</p>
           <p><strong>Current Status:</strong> <Badge bg="secondary">{job?.status || 'N/A'}</Badge> (Change status using the 'Change Status' button in the table)</p>
-          <hr/>
+          <hr />
+          <InputField
+            label="Filament Type"
+            name="filamentType"
+            value={values.filamentType || ''}
+            onChange={handleChange}
+            error={errors.filamentType}
+            placeholder="e.g., PLA, PETG"
+            as="select"
+            >
+              <option value="">Select Type</option>
+              <option value="PLA">PLA</option>
+              <option value="PETG">PETG</option>
+              <option value="ABS">ABS</option>
+              <option value="TPU">TPU</option>
+              <option value="Other">Other</option>
+            </InputField>
           <InputField label="Piece ID / Machine Plate No." name="machinePlateNo" value={values.machinePlateNo} onChange={handleChange} error={errors.machinePlateNo} isRequired />
           <InputField label="Machine/Printer" name="machineId" as="select" value={values.machineId} onChange={handleChange} error={errors.machineId} isRequired>
             <option value="">-- Select Printer --</option>

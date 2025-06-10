@@ -23,5 +23,9 @@ export const PRINT_PROFILES = {
     COMPLETED: 'completed',
     FAILED: 'failed',
   };
-  
+  export const PRINTER_CONNECTION_TYPES = { // <<< NEW
+    NONE: 'none',
+    HTTP: 'http',
+    MQTT: 'mqtt',
+};
   // Add other constants as needed

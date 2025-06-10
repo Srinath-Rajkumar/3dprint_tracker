@@ -38,7 +38,8 @@ const PartRow = ({ job, index, onEditDetails, onChangeStatus, onDelete, isProjec
           </small>
         )}
       </td>
-      <td>{job.slicerSpecificPlateNo || job.machinePlateNo || 'N/A'}</td>
+      {/* <td>{job.slicerSpecificPlateNo || job.machinePlateNo || 'N/A'}</td>  REPLACED */}
+      <td>{job.filamentType || 'N/A'}</td> {/* <<< DISPLAY FILAMENT TYPE */}
       <td>{job.machine?.name || 'N/A'} <br/> <small className="text-muted">{job.machine?.model || ''}</small></td>
       <td>{formatDurationFromSeconds(job.printTimeScheduledSeconds)}</td>
       <td>{job.weightGrams}g</td>
